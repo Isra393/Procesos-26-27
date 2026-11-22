@@ -755,11 +755,22 @@ button:disabled {
 }
 
 .grupo-disponibilidad li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   padding: 4px 10px;
   border: 1px solid var(--borde);
   border-radius: 999px;
   color: var(--texto-suave);
   font-size: 0.9rem;
+}
+
+.logo-proveedor {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  object-fit: cover;
 }
 
 .atribucion-disponibilidad,
@@ -855,6 +866,16 @@ button:disabled {
 .opcion-plataforma:focus-within {
   outline: 3px solid var(--coral);
   outline-offset: 2px;
+}
+
+.opcion-plataforma .logo-proveedor-grande {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.opcion-plataforma {
+  align-items: center;
 }
 
 .opcion-plataforma input {
