@@ -3,6 +3,7 @@ import {
   TEXTO_DISPONIBILIDAD_CARGANDO,
   TEXTO_DISPONIBILIDAD_FUENTE,
   crearEstadoDisponibilidad,
+  proveedorVisible,
   seccionesDisponibilidad,
   textoConsultadoEn
 } from "./disponibilidad.js";
@@ -293,8 +294,27 @@ function crearGrupoDisponibilidad(seccion) {
   const lista = document.createElement("ul");
 
   for (const proveedor of seccion.proveedores) {
+    const visible = proveedorVisible(proveedor);
     const elemento = document.createElement("li");
-    elemento.textContent = proveedor.nombre;
+
+    if (visible.logo) {
+      const logo = document.createElement("img");
+      logo.className = "logo-proveedor";
+      logo.src = visible.logo;
+      logo.alt = "";
+      logo.width = 24;
+      logo.height = 24;
+      logo.loading = "lazy";
+      logo.decoding = "async";
+      logo.referrerPolicy = "no-referrer";
+      // Si el logo falla, el nombre sigue siendo suficiente.
+      logo.addEventListener("error", () => logo.remove(), { once: true });
+      elemento.append(logo);
+    }
+
+    const nombre = document.createElement("span");
+    nombre.textContent = visible.nombre;
+    elemento.append(nombre);
     lista.append(elemento);
   }
 
