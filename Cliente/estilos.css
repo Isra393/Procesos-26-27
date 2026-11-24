@@ -435,6 +435,41 @@ button:disabled {
   text-align: center;
 }
 
+.olvido-password {
+  margin: 14px 0 0;
+  text-align: center;
+}
+
+.boton-enlace {
+  min-height: auto;
+  padding: 4px 6px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--coral-fuerte);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.boton-enlace:hover:not(:disabled) {
+  border-color: transparent;
+  background: transparent;
+  color: var(--texto);
+}
+
+#form-recuperacion {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--borde);
+}
+
+#form-recuperacion h3 {
+  margin: 0 0 8px;
+}
+
+.tarjeta-restablecer {
+  max-width: 640px;
+}
+
 .boton-revelar {
   min-height: var(--objetivo);
   margin-top: 8px;
