@@ -1,21 +1,24 @@
 # CineMatch — Procesos-26-27
 
 Prototipo funcional de catálogo y disponibilidad de películas para la asignatura
-de Procesos de la Ingeniería del Software. Reúne la base SaaS del Sprint 1 y los
+de Procesos de la Ingeniería del Software. Reúne la base SaaS del Sprint 1, los
 incrementos S2-01 (catálogo, búsqueda paginada y ficha) y S2-02 (preferencias de
-plataformas en España y disponibilidad propia).
+plataformas en España y disponibilidad propia) y la recuperación de contraseña
+local del Sprint 3.
 
 - Repositorio: <https://github.com/chemaa14/Procesos-26-27>
 - Aplicación pública: <https://cinematch-437102806627.europe-west1.run.app>
-- Documentación de sprint: [docs/sprint2](docs/sprint2)
+- Documentación general: [docs/index.md](docs/index.md)
+- Documentación de sprint: [docs/sprint2](docs/sprint2) y [docs/sprint3](docs/sprint3)
 
 ## Estado actual
 
 La aplicación permite registrarse, confirmar la cuenta por correo, iniciar y
 cerrar sesión, consultar el perfil, eliminar la propia cuenta y, con una sesión
 válida, buscar películas en TMDB, paginar resultados y abrir una ficha. También
-permite seleccionar plataformas de streaming para España y consultar en la ficha
-la disponibilidad asociada a esa selección.
+permite seleccionar plataformas de streaming para España, consultar en la ficha
+la disponibilidad asociada a esa selección y recuperar la contraseña local
+mediante un enlace de un solo uso.
 
 El administrador puede listar cuentas, consultar su estado y eliminarlas desde la
 interfaz. El acceso con Google reutiliza el flujo OAuth existente del servidor.
@@ -40,6 +43,22 @@ base de datos.
   alquiler, compra, gratis y anuncios; solo marca como incluidas las
   suscripciones cuyo proveedor coincide con la selección de la cuenta.
 
+### Incluido en Sprint 3
+
+- **Recuperación de contraseña local (#25):** enlace de un solo uso, token
+  almacenado como SHA-256, caducidad de 30 minutos, límites de envío y
+  revocación de sesiones al restablecer. Migración
+  `sql/008-recuperacion-password.sql`.
+- **Estado:** issue #25 cerrada y [PR #26](https://github.com/chemaa14/Procesos-26-27/pull/26)
+  fusionado. El responsable del proyecto confirmó la migración 008 en Cloud SQL
+  y el funcionamiento del flujo en Cloud; esa validación manual es del
+  responsable del proyecto. El agente no realizó pruebas propias de Gmail real ni
+  de Cloud.
+- **Listas:** el [PR #24](https://github.com/chemaa14/Procesos-26-27/pull/24)
+  está cerrado sin integrar y el [PR #27](https://github.com/chemaa14/Procesos-26-27/pull/27)
+  sigue abierto y pendiente. No se afirma la integración de listas ni que la
+  migración 007 esté aplicada: no existe 007 en esta rama.
+
 ### Límites de alcance
 
 Recomendaciones, reseñas, valoraciones, historial, listas y funciones sociales
@@ -59,7 +78,7 @@ reproducción ni promete disponibilidad en tiempo real.
 | Docker Compose | Base local reproducible, separada de producción. |
 | `node:crypto` y scrypt | Hash de contraseñas con sal aleatoria. |
 | Google OAuth/OpenID Connect y `google-auth-library` | Acceso externo y verificación del token de identidad. |
-| Nodemailer y Gmail SMTP con TLS | Envío del enlace de confirmación para la demostración. |
+| Nodemailer y Gmail SMTP con TLS | Envío de los enlaces de confirmación y recuperación para la demostración. |
 | `node:test` y `node:assert/strict` | Pruebas automatizadas integradas en Node.js. |
 | GitHub Actions, Cloud Build, Cloud Run y Cloud SQL | CI, construcción, despliegue y persistencia centralizada. |
 | Secret Manager | Credenciales fuera del repositorio. |
@@ -89,6 +108,7 @@ cliente. El CSS vive en `Cliente/estilos.css` y se sirve desde el mismo backend.
 - `Servidor/preferencias-plataformas.js` y `preferencias-plataformas-postgres.js`: preferencias por cuenta.
 - `Servidor/sesiones.js`, `sesiones-postgres.js`, `intentos-oauth.js`: sesiones e intentos OAuth.
 - `Servidor/confirmaciones.js`, `confirmaciones-postgres.js` y `correo.js`: confirmación por correo.
+- `Servidor/recuperaciones.js`, `recuperaciones-postgres.js` y `passwords.js`: recuperación local de contraseña.
 - `Servidor/google-oauth.js`: adaptador de Google con PKCE, `state` y `nonce`.
 - `Servidor/actividad.js`: logs JSON con campos cerrados y sin secretos.
 - `sql/`: migraciones aplicadas en orden.
@@ -127,7 +147,8 @@ NODE_ENV=development
 ```
 
 Mantener la contraseña existente si la base ya está creada. Después, iniciar
-PostgreSQL y aplicar las seis migraciones reales en orden:
+PostgreSQL y aplicar las migraciones reales 001–006 y 008 en orden. No existe
+007 en esta rama:
 
 ```powershell
 docker compose up -d --wait
@@ -137,6 +158,7 @@ Get-Content -Raw -Encoding UTF8 .\sql\003-oauth-google.sql | docker compose exec
 Get-Content -Raw -Encoding UTF8 .\sql\004-confirmacion-correo.sql | docker compose exec -T db psql -U cinematch -d cinematch -v ON_ERROR_STOP=1
 Get-Content -Raw -Encoding UTF8 .\sql\005-correos-disponibles.sql | docker compose exec -T db psql -U cinematch -d cinematch -v ON_ERROR_STOP=1
 Get-Content -Raw -Encoding UTF8 .\sql\006-preferencias-plataformas.sql | docker compose exec -T db psql -U cinematch -d cinematch -v ON_ERROR_STOP=1
+Get-Content -Raw -Encoding UTF8 .\sql\008-recuperacion-password.sql | docker compose exec -T db psql -U cinematch -d cinematch -v ON_ERROR_STOP=1
 npm.cmd run start:postgres
 ```
 
@@ -159,16 +181,19 @@ borrar el volumen local para actualizar el esquema.
 | `004-confirmacion-correo.sql` | Confirmaciones y límite global de correo. |
 | `005-correos-disponibles.sql` | Correo e identidad de Google reservados solo por cuentas vigentes. |
 | `006-preferencias-plataformas.sql` | Tabla `preferencias_plataformas` por cuenta, región `ES` y proveedor. |
+| `008-recuperacion-password.sql` | Tabla `recuperaciones_password` para recuperación local de contraseña. |
 
-Antes de desplegar código que use preferencias hay que aplicar la migración 006
-en local y en Cloud SQL.
+No existe la migración 007 en esta rama. Antes de desplegar código que use
+preferencias o recuperación hay que aplicar la 006 y la 008 en local y en Cloud
+SQL. En Cloud SQL, la 008 se aplicó antes del despliegue de la recuperación y el
+responsable del proyecto confirmó su funcionamiento.
 
 ## Variables de entorno
 
 | Variables | Necesidad |
 |---|---|
 | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | Obligatorias para PostgreSQL. |
-| `SMTP_USER`, `SMTP_PASSWORD`, `APP_URL` | Obligatorias para arrancar con `Servidor/inicio-postgres.js` y para el registro con confirmación por correo. |
+| `SMTP_USER`, `SMTP_PASSWORD`, `APP_URL` | Obligatorias para arrancar con `Servidor/inicio-postgres.js` y para la confirmación por correo y la recuperación de contraseña. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` | Las tres juntas habilitan Google; vacías lo desactivan en desarrollo. Una configuración parcial impide arrancar. |
 | `TMDB_READ_ACCESS_TOKEN` | Sprint 2. Token de lectura de TMDB; sin él, las cuentas funcionan y el catálogo responde 503. |
 | `TMDB_TIMEOUT_MS` | Opcional, entero entre 1 y 120000; por defecto 10000. |
@@ -178,7 +203,9 @@ en local y en Cloud SQL.
 Los valores reales se mantienen en `.env` local o en Cloud Run y Secret Manager.
 `.env.example` solo contiene nombres y ejemplos sin credenciales. El CI usa una
 base efímera y credenciales ficticias. Las variables de preferencias reutilizan
-la sesión y el token de TMDB; la migración 006 no añade variables nuevas.
+la sesión y el token de TMDB; la migración 006 no añade variables nuevas. La
+recuperación de contraseña reutiliza `DB_*`, `SMTP_USER`, `SMTP_PASSWORD` y
+`APP_URL`; la migración 008 tampoco añade variables nuevas.
 
 ## Recorridos de la aplicación
 
@@ -196,6 +223,19 @@ la sesión y el token de TMDB; la migración 006 no añade variables nuevas.
    intentos por cuenta/hora y 100 globales/hora.
 5. **Perfil y baja.** El usuario puede cerrar sesión o eliminar su cuenta. La
    baja es lógica, revoca las sesiones y permite un registro posterior nuevo.
+
+### Recuperación de contraseña (Sprint 3)
+
+- `POST /api/password/solicitar` responde siempre con el mismo `202` genérico,
+  exista o no la cuenta, para no revelar si un correo está registrado.
+- `POST /api/password/restablecer` consume un token de un solo uso, cambia la
+  contraseña y revoca las sesiones anteriores. No inicia sesión.
+- El enlace viaja en el fragmento `/#recuperar=TOKEN`, que el cliente retira de
+  la barra antes de continuar. El token caduca a los 30 minutos y un reenvío
+  invalida el anterior.
+- Se aplican límites de 60 segundos entre envíos, cinco por cuenta y hora y 100
+  globales por hora. Las cuentas pendientes, eliminadas o solo Google no reciben
+  enlace.
 
 ### Catálogo y ficha (S2-01)
 
@@ -258,6 +298,8 @@ antiguas. El detalle se cierra con Escape o con **Volver a resultados**.
 | POST `/api/auth/google` | Público; prepara el acceso externo |
 | GET `/api/auth/google/callback` | Retorno de Google; valida intento e identidad |
 | POST `/api/prueba/email` | Público; valida el formato de correo sin crear cuenta |
+| POST `/api/password/solicitar` | Público y `X-CineMatch: 1`; solicita un enlace de recuperación |
+| POST `/api/password/restablecer` | Público y `X-CineMatch: 1`; consume el token y cambia la contraseña |
 | POST `/api/login` | Credenciales de una cuenta confirmada y no eliminada |
 | GET `/api/sesion` | Sesión válida |
 | POST `/api/logout` | Cierra la sesión y borra su cookie |
@@ -342,10 +384,10 @@ npm.cmd run test:postgres
 - `npm.cmd test` ejecuta `node --test` sobre las pruebas unitarias, HTTP y de
   integración en memoria. No requiere PostgreSQL, TMDB, Gmail ni credenciales.
 - `npm.cmd run test:postgres` carga `.env` si existe y comprueba persistencia con
-  PostgreSQL real. Requiere una base exclusiva con las migraciones 001 a 006
-  aplicadas.
-- GitHub Actions prepara PostgreSQL 17, aplica las seis migraciones y ejecuta
-  ambos comandos en cada PR hacia `main` y en cada cambio de `main`.
+  PostgreSQL real. Requiere una base exclusiva con las migraciones 001–006 y 008
+  aplicadas; no existe 007 en esta rama.
+- GitHub Actions prepara PostgreSQL 17, aplica las migraciones 001–006 y 008 y
+  ejecuta ambos comandos en cada PR hacia `main` y en cada cambio de `main`.
 
 La cobertura automatizada incluye registro, sesiones, roles, OAuth, confirmación,
 catálogo, paginación, detalle, preferencias, disponibilidad, aislamiento entre
@@ -422,8 +464,10 @@ Configuración del entorno:
 
 La cuenta de servicio de Cloud Run necesita Cloud SQL Client y acceso de lectura
 a los secretos que utiliza. Las migraciones se aplican con el propietario en la
-base `cinematch`, en orden 001 a 006, antes del despliegue que las necesita. El
-usuario de ejecución `cinematch_app` no necesita permisos DDL.
+base `cinematch`, en orden 001–006 y 008, antes del despliegue que las necesita.
+No existe 007 en esta rama. El responsable del proyecto confirmó la aplicación de
+la 008 en Cloud SQL y el funcionamiento de la recuperación en Cloud. El usuario de
+ejecución `cinematch_app` no necesita permisos DDL.
 
 ### Permisos mínimos e incidencia 42501
 
@@ -509,6 +553,24 @@ jsonPayload.evento="login_rechazado"
 | Error de TMDB | Se devuelve un estado controlado sin mensajes del proveedor. |
 | Error 42501 en preferencias | Diagnosticar con `has_schema_privilege` y `has_table_privilege`; aplicar solo el `GRANT` que falte. |
 
+## Documentación de Sprint 3
+
+Índice general en [docs/index.md](docs/index.md) y detalle en
+[docs/sprint3](docs/sprint3). La semana 1 (19–25 de noviembre de 2026) se
+documenta en [semana-1.md](docs/sprint3/semana-1.md), que conserva pruebas,
+revisiones y el estado del proyecto de Ana. Resumen de aportaciones externas:
+
+| Fecha | Proyecto | Enlace | Estado | Resultado |
+|---|---|---|---|---|
+| 23 nov 2026 | Isra393/despensa-inteligente | [Issue #25](https://github.com/Isra393/despensa-inteligente/issues/25) | Abierta | Ranking singular/plural |
+| 24 nov 2026 | B1lly05/SplitMate | [Issue #24](https://github.com/B1lly05/SplitMate/issues/24) | Abierta | Exportación CSV |
+| 23 nov 2026 | MariaMartinez128/Brote | [PR #2](https://github.com/MariaMartinez128/Brote/pull/2) | Integrada 25 nov | Fechas imposibles sin error 500 |
+| 25 nov 2026 | Isra393/despensa-inteligente | [PR #26](https://github.com/Isra393/despensa-inteligente/pull/26) | Abierta | Singular/plural; 178 pruebas |
+
+Trabajo propio: recuperación integrada con la migración 008; PR #23 fusionado,
+PR #24 cerrado sin integrar y PR #27 abierto. Los detalles y límites están en
+[semana-1.md](docs/sprint3/semana-1.md).
+
 ## Documentación de Sprint 2
 
 - [S2-01-T01 — Fuente de datos](docs/sprint2/S2-01-T01-fuente-datos.md)
@@ -550,12 +612,21 @@ npm.cmd test
 git diff --check
 ```
 
-Registro de esta revisión:
+Registro histórico de la revisión de Sprint 2:
 
 - La suite completa, ejecutada antes de los ajustes finales de CSS y README,
   terminó con 229/229 pruebas.
 - En un entorno aislado con datos ficticios se comprobó en navegador login,
   búsqueda, ficha, guardado de preferencias y actualización de la selección, a
   1280 px y 320 px, sin desbordamiento horizontal en la ficha.
-- No se verificaron OAuth real, entrega real de correo ni un despliegue nuevo;
-  esas comprobaciones siguen pendientes.
+- En esa revisión no se verificaron OAuth real, entrega real de correo ni un
+  despliegue nuevo. Con posterioridad, el responsable del proyecto confirmó la
+  migración 008 en Cloud SQL y el funcionamiento de la recuperación en Cloud; el
+  agente no dispone de pruebas propias de Gmail real ni de Cloud.
+
+Estado de la revisión documental de Sprint 3 (25 de noviembre de 2026):
+
+- `npm.cmd test`: **246/246 pruebas superadas, 0 fallos**.
+- `git diff --check`: sin errores.
+- No se ejecutó `npm.cmd run test:postgres` en esta revisión; el registro
+  histórico de la recuperación es **18/18** pruebas superadas.
